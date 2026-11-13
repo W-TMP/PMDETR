@@ -1,0 +1,76 @@
+# 在 RT-DETR 编码器中启用潜能图增强（红外空间先验）
+# 使用方式：在任务 yml 的 __include__ 中用本文件替换 include/rtdetr_r50vd_X.yml，或在本文件基础上追加/覆盖
+
+task: detection
+model: RTDETRX
+criterion: SetCriterion
+postprocessor: RTDETRPostProcessor
+
+RTDETRX:
+  backbone: PResNetX
+  encoder: HybridEncoder
+  decoder: RTDETRTransformer
+  multi_scale: [480, 512, 544, 576, 608, 640, 640, 640, 672, 704, 736, 768, 800]
+
+# Backbone 在 P2 融合，输出 P2/P3/P4；需返回 IR 特征（P2 尺度）供编码器潜能图
+PResNetX:
+  depth: 50
+  variant: d
+  freeze_at: 0
+  return_idx: [0, 1, 2]
+  num_stages: 3
+  freeze_norm: True
+  pretrained: True
+  return_ir_feat: True
+
+# 编码器：潜能图增强
+# potential_mode: 'pre' | 'post' | 'bias'
+#   - pre: 编码前特征调制 F̃ = F ⊙ (1 + α·G_ir)
+#   - post: 编码中 Attention 后门控
+#   - bias: Attention logits 加 bias
+HybridEncoder:
+  in_channels: [256, 512, 1024]
+  feat_strides: [4, 8, 16]
+  hidden_dim: 256
+  use_encoder_idx: [2]
+  num_encoder_layers: 1
+  nhead: 8
+  dim_feedforward: 1024
+  dropout: 0.
+  enc_act: 'gelu'
+  pe_temperature: 10000
+  expansion: 1.0
+  depth_mult: 1
+  act: 'silu'
+  eval_spatial_size: [640, 640]
+  use_potential_map: True
+  potential_mode: 'pre'
+  potential_ir_channels: 256
+
+RTDETRTransformer:
+  feat_channels: [256, 256, 256]
+  feat_strides: [4, 8, 16]
+  hidden_dim: 256
+  num_levels: 3
+  num_queries: 300
+  num_decoder_layers: 6
+  num_denoising: 100
+  eval_idx: -1
+  eval_spatial_size: [640, 640]
+
+use_focal_loss: True
+RTDETRPostProcessor:
+  num_top_queries: 300
+
+SetCriterion:
+  weight_dict: {loss_vfl: 1, loss_bbox: 5, loss_giou: 2, loss_potential: 1.0}
+  losses: ['vfl', 'boxes', 'potential']
+  alpha: 0.75
+  gamma: 2.0
+  potential_alpha: 0.25
+  potential_gamma: 2.0
+  matcher:
+    type: HungarianMatcher
+    weight_dict: {cost_class: 2, cost_bbox: 5, cost_giou: 2}
+    alpha: 0.25
+    gamma: 2.0

@@ -1,0 +1,18 @@
+__include__: [
+  '../dataset/vedai_X_ir_detection_train2.yml',
+  '../runtime.yml',
+  './include/dataloader_X.yml',
+  './include/optimizer.yml',
+  './include/rtdetr_r50vd_X_potential.yml',
+]
+
+train_dataloader: 
+  batch_size: 6
+  num_workers: 4
+
+optimizer:
+  lr: 0.00005
+
+output_dir: ./output/gmdetr_r50vd_6x_vedai_X_potential_train2
+
+

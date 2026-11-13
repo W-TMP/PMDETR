@@ -1,0 +1,88 @@
+__include__: [
+  '../dataset/llvip_X_ir_detection_train2.yml',
+  '../runtime.yml',
+  './include/dataloader_X_1024.yml',
+  './include/optimizer.yml',
+  './include/rtdetr_r50vd_X_potential_1024.yml',
+]
+
+train_dataloader: 
+  batch_size: 3
+  num_workers: 4
+
+optimizer:
+  lr: 0.00005
+
+output_dir: ./output/gmdetr_r50vd_6x_llvip_1024_X_potential_train2
+
+
+# 在 RTDETRX 中启用 HGS 编码器与轻量级融合颈部
+RTDETRX:
+  backbone: PResNetX
+  encoder: HGS_EncoderWrapper
+  fusion: FusionWrapper
+  decoder: RTDETRTransformer
+  multi_scale: [864, 896, 928, 960, 992, 1024, 1024, 1024, 1056, 1088, 1120, 1152, 1184]
+
+# Backbone 需返回 IR 特征供编码器生成潜能图
+PResNetX:
+  depth: 50
+  variant: d
+  freeze_at: 0
+  return_idx: [1, 2, 3]
+  num_stages: 4
+  freeze_norm: True
+  pretrained: True
+  return_ir_feat: True
+# HGS encoder configuration（覆盖默认 HybridEncoder）。
+# 注意：PResNetX.return_idx: [1, 2, 3] 时，对应三个尺度通道数为 [512, 1024, 2048]。
+HGS_EncoderWrapper:
+  in_channels: [512, 1024, 2048]
+  hidden_dim: 256
+  encoder_layers_per_level: [2, 2, 3]  # increase encoder depth for more representation power
+  nhead: 8
+  dim_feedforward: 1024
+  rho: [0.6, 0.8, 1.0]                # keep more tokens to preserve recall for small objects
+  gate_sharpness: 1.15                 # mild sharpening of gate scores
+  local_dw_alpha: 0.12                 # slightly stronger local residual
+  learnable_local_dw_alpha: True
+  enabled: True
+  pe_temperature: 10000.0
+  enc_act: 'gelu'
+  eval_spatial_size: [1024, 1024]
+
+RTDETRTransformer:
+  # 编码器（HGS_EncoderWrapper）在三个尺度上都输出 256 维特征，
+  # 因此 decoder 侧的 feat_channels 也需要全部设置为 256，避免通道不匹配。
+  feat_channels: [256, 256, 256]
+  feat_strides: [8, 16, 32]
+  hidden_dim: 256
+  num_levels: 3
+  num_queries: 300
+  num_decoder_layers: 6
+  num_denoising: 100
+  eval_idx: -1
+  eval_spatial_size: [1024, 1024]
+
+# FusionWrapper config
+FusionWrapper:
+  channels: 256
+  enabled: True
+  use_potentials: True
+
+# SetCriterion: use the original weights (no potential_map) to avoid unexpected large loss changes during initial runs.
+SetCriterion:
+  weight_dict: {loss_vfl: 1, loss_bbox: 5, loss_giou: 2, loss_potential_map: 2}
+  losses: ['vfl', 'boxes', 'potential_map']
+  alpha: 0.75
+  gamma: 2.0
+
+  matcher:
+    type: HungarianMatcher
+    weight_dict: {cost_class: 6, cost_bbox: 5, cost_giou: 2}
+    alpha: 0.25
+    gamma: 2.0
+
+# Optional: tune the potential-map loss weight and HGS rho in your experiment tracking.
+# You mentioned dataset paths and batch size are already set in include files; no need to duplicate them here.
+
