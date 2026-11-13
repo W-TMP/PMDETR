@@ -1,0 +1,33 @@
+task: detection
+
+num_classes: 3
+remap_mscoco_category: True
+
+train_dataloader: 
+  type: DataLoader
+  dataset: 
+    type: CocoXDetection
+    img_folder: ./datasets/coco_FLIR_align/train_imgs/vis_imgs
+    ann_file: ./datasets/coco_FLIR_align/annotations/train.json
+    transforms:
+      type: Compose
+      ops: ~
+  shuffle: True
+  batch_size: 1
+  num_workers: 4
+  drop_last: True 
+
+val_dataloader:
+  type: DataLoader
+  dataset: 
+    type: CocoXDetection
+    img_folder: ./datasets/coco_FLIR_align/val_imgs/vis_imgs
+    ann_file: ./datasets/coco_FLIR_align/annotations/val.json
+    transforms:
+      type: Compose
+      ops: ~ 
+
+  shuffle: False
+  batch_size: 1
+  num_workers: 4
+  drop_last: False

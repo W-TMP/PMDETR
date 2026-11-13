@@ -1,0 +1,33 @@
+task: detection
+
+num_classes: 3
+remap_mscoco_category: True
+
+train_dataloader: 
+  type: DataLoader
+  dataset: 
+    type: CocoXDetection
+    img_folder: /home1/wqy/dataset/coco_DVTOD/train_imgs/vis_imgs
+    ann_file: /home1/wqy/dataset/coco_DVTOD/annotations/train.json
+    transforms:
+      type: Compose
+      ops: ~
+  shuffle: True
+  batch_size: 4
+  num_workers: 4
+  drop_last: True 
+
+val_dataloader:
+  type: DataLoader
+  dataset: 
+    type: CocoXDetection
+    img_folder: /home1/wqy/dataset/coco_DVTOD/val_imgs/vis_imgs
+    ann_file: /home1/wqy/dataset/coco_DVTOD/annotations/val.json
+    transforms:
+      type: Compose
+      ops: ~ 
+
+  shuffle: False
+  batch_size: 4
+  num_workers: 4
+  drop_last: False
